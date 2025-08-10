@@ -1,6 +1,6 @@
 # Albert Zed Workspaces Plugin
 
-Quickly find and open your Zed workspaces right from your favourite launcher.
+Quickly find and open your Zed workspaces right from your favorite launcher.
 
 **Note:** This plugin is not officially associated with Zed or Zed Industries in any way.
 
