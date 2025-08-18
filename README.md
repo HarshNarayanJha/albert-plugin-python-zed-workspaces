@@ -10,6 +10,8 @@ To install, copy or symlink this directory to `~/.local/share/albert/python/plug
 
 Or just run `git clone https://github.com/HarshNarayanJha/albert_zed_workspaces ~/.local/share/albert/python/plugins/albert_zed_workspaces/`
 
+**Note:** For macOS users, be sure to go to `Zed > Install CLI` option to have `zed` in path so that the plugin can detect it.
+
 ### Development Setup
 
 I use the Zed Editor (naturally). Python Development includes `pyright` as `lsp` and `ruff` as `linter`.
