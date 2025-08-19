@@ -78,6 +78,7 @@ class Editor:
             workspaces: list[Workspace] = []
             with sqlite3.connect(recent_workspaces_file) as conn:
                 cursor = conn.cursor()
+                # NOTE: path might contain multiple paths, need to check
                 cursor.execute("SELECT workspace_id, local_paths_array, timestamp FROM workspaces")
                 for row in cursor:
                     if not row[1]:

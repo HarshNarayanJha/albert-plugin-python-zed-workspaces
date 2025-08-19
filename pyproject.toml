@@ -1,6 +1,6 @@
 [project]
 name = "albert-plugin-python-zed-workspaces"
-version = "1.0"
+version = "1.1"
 authors = [{ name = "Harsh Narayan Jha", email = "harshnj@proton.me" }]
 description = "Open your Zed workspaces"
 readme = "README.md"
