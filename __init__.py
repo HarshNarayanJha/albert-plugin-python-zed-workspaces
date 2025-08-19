@@ -78,13 +78,13 @@ class Editor:
             workspaces: list[Workspace] = []
             with sqlite3.connect(recent_workspaces_file) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT workspace_id, local_paths, timestamp FROM workspaces")
+                cursor.execute("SELECT workspace_id, local_paths_array, timestamp FROM workspaces")
                 for row in cursor:
                     if not row[1]:
                         continue
 
                     w_id = row[0]
-                    local_path = "/" + "/".join(row[1].decode().split("/")[1:])
+                    local_path = row[1].strip()
                     timestamp = int(isoparse(row[2]).timestamp())
 
                     w_name = local_path.split("/")[-1]
