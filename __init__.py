@@ -6,6 +6,7 @@ This plugin allows you to quickly open workspaces in Zed Editor
 Disclaimer: This plugin is not officially affiliated with Zed or Zed Industries.
 """
 
+import logging
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -67,7 +68,7 @@ class Editor:
         if platform == "darwin":
             config_dir = Path.home() / "Library" / "Application Support"
 
-        dirs = list(config_dir.glob(f"{self.config_dir_prefix}*/"))
+        dirs = list(config_dir.glob(f"{self.config_dir_prefix}/"))
         if not dirs:
             return []
         latest = sorted(dirs)[-1]
@@ -79,7 +80,7 @@ class Editor:
             with sqlite3.connect(recent_workspaces_file) as conn:
                 cursor = conn.cursor()
                 # NOTE: path might contain multiple paths, need to check
-                cursor.execute("SELECT workspace_id, local_paths_array, timestamp FROM workspaces")
+                cursor.execute("SELECT workspace_id, paths, timestamp FROM workspaces")
                 for row in cursor:
                     if not row[1]:
                         continue
@@ -93,6 +94,10 @@ class Editor:
                     workspaces.append(Workspace(id=w_id, name=w_name, path=local_path, last_opened=timestamp))
 
             return workspaces
+
+        except sqlite3.OperationalError:
+            logging.error(f"Please update your Zed to the latest version for {recent_workspaces_file}")
+            return []
 
         except FileNotFoundError:
             return []
