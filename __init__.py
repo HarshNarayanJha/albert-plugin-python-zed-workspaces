@@ -29,7 +29,7 @@ from albert import (  # pyright: ignore[reportMissingModuleSource]
 from dateutil.parser import isoparse
 
 md_iid = "4.0"
-md_version = "2.0"
+md_version = "2.1"
 md_name = "Zed Workspaces"
 md_description = "Open your Zed workspaces"
 md_license = "MIT"
@@ -115,10 +115,10 @@ class Plugin(PluginInstance, TriggerQueryHandler):
         self.fuzzy: bool = False
 
         self._match_path: bool
-        if (match_path := self.readConfig("match_path", bool)) == None:
-            self.match_path = True
+        if (match_path := self.readConfig("match_path", bool)) is None:
+            self._match_path = True
         else:
-            self.match_path = cast(bool, match_path)
+            self._match_path = cast(bool, match_path)
 
         if platform == "darwin":
             zed_dir_name = "Zed"
@@ -170,7 +170,7 @@ class Plugin(PluginInstance, TriggerQueryHandler):
 
     @override
     def synopsis(self, query: str) -> str:
-        return "<workspace name|path>" if self.match_path else "<workspace name>"
+        return "<workspace name|path>" if self._match_path else "<workspace name>"
 
     @override
     def handleTriggerQuery(self, query: Query):
@@ -183,7 +183,7 @@ class Plugin(PluginInstance, TriggerQueryHandler):
         for editor in self.editors:
             workspaces = editor.list_workspaces()
             workspaces = [p for p in workspaces if Path(p.path).exists()]
-            if self.match_path:
+            if self._match_path:
                 workspaces = [p for p in workspaces if m.match(p.name) or m.match(p.path)]
             else:
                 workspaces = [p for p in workspaces if m.match(p.name)]
