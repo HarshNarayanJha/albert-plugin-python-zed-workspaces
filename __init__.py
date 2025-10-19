@@ -12,28 +12,32 @@ from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
 from sys import platform
-from typing import override
+from typing import cast, override
 
 from albert import (  # pyright: ignore[reportMissingModuleSource]
     Action,
     Item,
+    MatchConfig,
     Matcher,
     PluginInstance,
     Query,
     StandardItem,
     TriggerQueryHandler,
+    makeThemeIcon,
     runDetachedProcess,
 )
 from dateutil.parser import isoparse
 
-md_iid = "3.0"
-md_version = "1.0"
+md_iid = "4.0"
+md_version = "2.0"
 md_name = "Zed Workspaces"
 md_description = "Open your Zed workspaces"
 md_license = "MIT"
 md_url = "https://github.com/HarshNarayanJha/albert_zed_workspaces"
+md_readme_url = "https://github.com/HarshNarayanJha/albert_zed_workspaces/blob/main/README.md"
 md_lib_dependencies = ["python-dateutil"]
 md_authors = ["@HarshNarayanJha"]
+md_maintainers = ["@HarshNarayanJha"]
 
 
 @dataclass
@@ -108,14 +112,22 @@ class Plugin(PluginInstance, TriggerQueryHandler):
         PluginInstance.__init__(self)
         TriggerQueryHandler.__init__(self)
 
+        self.fuzzy: bool = False
+
+        self._match_path: bool
+        if (match_path := self.readConfig("match_path", bool)) == None:
+            self.match_path = True
+        else:
+            self.match_path = cast(bool, match_path)
+
         if platform == "darwin":
             zed_dir_name = "Zed"
-            icon = "qfip:/Applications/Zed.app"
-            icon_preview = "qfip:/Applications/Zed-Preview.app"
+            icon = "/Applications/Zed.app"
+            icon_preview = "/Applications/Zed-Preview.app"
         elif platform == "linux":
             zed_dir_name = "zed"
-            icon = "xdg:zed"
-            icon_preview = "xdg:zed-preview"
+            icon = "zed"
+            icon_preview = "zed-preview"
         else:
             raise NotImplementedError(f"Unsupported platform: {platform}")
 
@@ -135,23 +147,47 @@ class Plugin(PluginInstance, TriggerQueryHandler):
         ]
         self.editors: list[Editor] = [e for e in editors if e.binary is not None]
 
+    @property
+    def match_path(self) -> bool:
+        return self._match_path
+
+    @match_path.setter
+    def match_path(self, value: bool):
+        self._match_path = value
+        self.writeConfig("match_path", value)
+
+    @override
+    def supportsFuzzyMatching(self):
+        return True
+
+    @override
+    def setFuzzyMatching(self, enabled: bool):
+        self.fuzzy = enabled
+
     @override
     def defaultTrigger(self) -> str:
         return "zd "
 
     @override
     def synopsis(self, query: str) -> str:
-        return "<workspace name|path>"
+        return "<workspace name|path>" if self.match_path else "<workspace name>"
 
     @override
     def handleTriggerQuery(self, query: Query):
+        if not query.isValid:
+            return
+
         editor_workspace_pairs: list[tuple[Editor, Workspace]] = []
 
-        m = Matcher(query.string)
+        m = Matcher(query.string, MatchConfig(fuzzy=self.fuzzy))
         for editor in self.editors:
             workspaces = editor.list_workspaces()
             workspaces = [p for p in workspaces if Path(p.path).exists()]
-            workspaces = [p for p in workspaces if m.match(p.name) or m.match(p.path)]
+            if self.match_path:
+                workspaces = [p for p in workspaces if m.match(p.name) or m.match(p.path)]
+            else:
+                workspaces = [p for p in workspaces if m.match(p.name)]
+
             editor_workspace_pairs.extend([(editor, p) for p in workspaces])
 
         # sort by last opened
@@ -161,11 +197,11 @@ class Plugin(PluginInstance, TriggerQueryHandler):
 
     def _make_item(self, editor: Editor, workspace: Workspace, query: Query) -> Item:
         return StandardItem(
-            id=str(workspace.id),
+            id=f"{workspace.id}-{editor.binary}-{workspace.last_opened}",
             text=workspace.name,
             subtext=workspace.path,
-            inputActionText=query.trigger + workspace.name,
-            iconUrls=[editor.icon],
+            input_action_text=workspace.name,
+            icon_factory=lambda: makeThemeIcon(editor.icon),
             actions=[
                 Action(
                     "Open",
@@ -182,4 +218,5 @@ class Plugin(PluginInstance, TriggerQueryHandler):
     def configWidget(self):
         return [
             {"type": "label", "text": str(__doc__).strip(), "widget_properties": {"textFormat": "Qt::MarkdownText"}},
+            {"type": "checkbox", "property": "match_path", "label": "Match path"},
         ]
