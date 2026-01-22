@@ -6,9 +6,9 @@ Quickly find and open your Zed workspaces right from your favorite launcher.
 
 ### Install
 
-To install, copy or symlink this directory to `~/.local/share/albert/python/plugins/albert_zed_workspaces/`
+To install, copy or symlink this directory to `~/.local/share/albert/python/plugins/albert-plugin-python-zed-workspaces/`
 
-Or just run `git clone https://github.com/HarshNarayanJha/albert_zed_workspaces ~/.local/share/albert/python/plugins/albert_zed_workspaces/`
+Or just run `git clone https://github.com/HarshNarayanJha/albert-plugin-python-zed-workspaces ~/.local/share/albert/python/plugins/albert-plugin-python-zed-workspaces`
 
 **Note:** For macOS users, be sure to go to `Zed > Install CLI` option to have `zed` in path so that the plugin can detect it.
 

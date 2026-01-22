@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Harsh Narayan Jha
+# Copyright (c) 2026 Harsh Narayan Jha
 
 """
 This plugin allows you to quickly open workspaces in Zed Editor
@@ -6,35 +6,37 @@ This plugin allows you to quickly open workspaces in Zed Editor
 Disclaimer: This plugin is not officially affiliated with Zed or Zed Industries.
 """
 
-import logging
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
 from sys import platform
-from typing import cast, override
+from typing import Generator, cast, override
 
-from albert import (  # pyright: ignore[reportMissingModuleSource]
+from dateutil.parser import isoparse  # ty:ignore[unresolved-import]
+
+from albert import (
     Action,
+    GeneratorQueryHandler,
+    Icon,
     Item,
     MatchConfig,
     Matcher,
     PluginInstance,
-    Query,
+    QueryContext,
     StandardItem,
-    TriggerQueryHandler,
-    makeThemeIcon,
+    openFile,
     runDetachedProcess,
+    runTerminal,
 )
-from dateutil.parser import isoparse
 
-md_iid = "4.0"
-md_version = "2.1"
+md_iid = "5.0"
+md_version = "3.0"
 md_name = "Zed Workspaces"
 md_description = "Open your Zed workspaces"
 md_license = "MIT"
-md_url = "https://github.com/HarshNarayanJha/albert_zed_workspaces"
-md_readme_url = "https://github.com/HarshNarayanJha/albert_zed_workspaces/blob/main/README.md"
+md_url = "https://github.com/HarshNarayanJha/albert-plugin-python-zed-workspaces"
+md_readme_url = "https://github.com/HarshNarayanJha/albert-plugin-python-zed-workspaces/blob/main/README.md"
 md_lib_dependencies = ["python-dateutil"]
 md_authors = ["@HarshNarayanJha"]
 md_maintainers = ["@HarshNarayanJha"]
@@ -100,17 +102,17 @@ class Editor:
             return workspaces
 
         except sqlite3.OperationalError:
-            logging.error(f"Please update your Zed to the latest version for {recent_workspaces_file}")
+            warning(f"Please update your Zed to the latest version for {recent_workspaces_file}")  # ty:ignore[unresolved-reference]  # noqa: F821
             return []
 
         except FileNotFoundError:
             return []
 
 
-class Plugin(PluginInstance, TriggerQueryHandler):
+class Plugin(PluginInstance, GeneratorQueryHandler):
     def __init__(self):
         PluginInstance.__init__(self)
-        TriggerQueryHandler.__init__(self)
+        GeneratorQueryHandler.__init__(self)
 
         self.fuzzy: bool = False
 
@@ -173,16 +175,16 @@ class Plugin(PluginInstance, TriggerQueryHandler):
         return "<workspace name|path>" if self._match_path else "<workspace name>"
 
     @override
-    def handleTriggerQuery(self, query: Query):
-        if not query.isValid:
+    def items(self, context: QueryContext) -> Generator[list[Item]]:
+        if not context.isValid:
             return
 
         editor_workspace_pairs: list[tuple[Editor, Workspace]] = []
+        m = Matcher(context.query, MatchConfig(fuzzy=self.fuzzy))
 
-        m = Matcher(query.string, MatchConfig(fuzzy=self.fuzzy))
         for editor in self.editors:
             workspaces = editor.list_workspaces()
-            workspaces = [p for p in workspaces if Path(p.path).exists()]
+            workspaces: list[Workspace] = [p for p in workspaces if Path(p.path).exists()]
             if self._match_path:
                 workspaces = [p for p in workspaces if m.match(p.name) or m.match(p.path)]
             else:
@@ -192,26 +194,40 @@ class Plugin(PluginInstance, TriggerQueryHandler):
 
         # sort by last opened
         editor_workspace_pairs.sort(key=lambda pair: pair[1].last_opened, reverse=True)
+        items: list[StandardItem] = [self._make_item(editor, workspace) for editor, workspace in editor_workspace_pairs]
 
-        query.add([self._make_item(editor, workspace, query) for editor, workspace in editor_workspace_pairs])
+        yield items
 
-    def _make_item(self, editor: Editor, workspace: Workspace, query: Query) -> Item:
+    def _make_item(self, editor: Editor, workspace: Workspace) -> StandardItem:
+        actions: list[Action] = [
+            Action(
+                "open",
+                "Open in %s" % editor.name,
+                lambda selected_workspace=workspace.path: runDetachedProcess(
+                    # Binary has to be valid here
+                    [editor.binary, selected_workspace],  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
+                    selected_workspace,
+                ),
+            ),
+            Action(
+                "open-terminal",
+                "Open Terminal at path",
+                lambda selected_workspace=workspace.path: runTerminal(f"cd {selected_workspace} && exec $SHELL"),
+            ),
+            Action(
+                "open-file-manager",
+                "Open File Manager at path",
+                lambda selected_workspace=workspace.path: openFile(selected_workspace),
+            ),
+        ]
+
         return StandardItem(
             id=f"{workspace.id}-{editor.binary}-{workspace.last_opened}",
             text=workspace.name,
             subtext=workspace.path,
             input_action_text=workspace.name,
-            icon_factory=lambda: makeThemeIcon(editor.icon),
-            actions=[
-                Action(
-                    "Open",
-                    "Open in %s" % editor.name,
-                    lambda selected_workspace=workspace.path: runDetachedProcess(
-                        # Binary has to be valid here
-                        [editor.binary, selected_workspace]  # pyright: ignore[reportArgumentType]
-                    ),
-                )
-            ],
+            icon_factory=lambda: Icon.theme(editor.icon),
+            actions=actions,
         )
 
     @override
